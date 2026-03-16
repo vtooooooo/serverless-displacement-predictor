@@ -1,0 +1,8 @@
+{
+  "requestContext": {
+    "http": {
+      "method": "POST"
+    }
+  },
+  "body": "{\"conflict_intensity\": 8.5, \"political_instability\": 7.2, \"gdp_per_capita_log\": 6.8, \"food_insecurity_score\": 7.9, \"climate_disaster_risk\": 6.5, \"governance_index\": 2.1, \"human_rights_score\": 8.0, \"unemployment_rate\": 22.0, \"prior_year_displaced\": 250000, \"neighboring_conflict\": 1, \"population_millions\": 42.0}"
+}

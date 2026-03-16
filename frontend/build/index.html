@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Global Displacement Risk Predictor</title>
+  <style>
+    /* ── Design System ── */
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --accent:    #238636;
+      --danger:    #da3633;
+      --warn:      #d29922;
+      --info:      #1f6feb;
+      --critical:  #b91c1c;
+      --radius:    10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      padding: 24px 16px 48px;
+    }
+
+    /* ── Layout ── */
+    .app { max-width: 900px; margin: 0 auto; }
+
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+      padding: 28px 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    header .tag {
+      display: inline-block;
+      background: rgba(35,134,54,.15);
+      color: #3fb950;
+      border: 1px solid rgba(63,185,80,.3);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 12px;
+    }
+    header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+    header p  { color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 580px; margin: 0 auto; }
+
+    /* ── Form Grid ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .card h2 { font-size: 15px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 18px; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 580px) { .grid { grid-template-columns: 1fr; } }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .field label span { color: var(--text); font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 11px; }
+    .field input[type=range] { width: 100%; accent-color: #58a6ff; cursor: pointer; }
+    .field .val {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .field .val strong { color: #58a6ff; }
+    .field .val small  { color: var(--muted); }
+
+    input[type=number] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 8px 12px;
+    }
+    input[type=number]:focus { outline: none; border-color: #58a6ff; }
+
+    .toggle-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .toggle-group button {
+      flex: 1;
+      padding: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .toggle-group button.active {
+      background: rgba(88,166,255,.15);
+      border-color: #58a6ff;
+      color: #58a6ff;
+    }
+
+    /* ── Preset Countries ── */
+    .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .preset-btn {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .preset-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+
+    /* ── Predict Button ── */
+    #predict-btn {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, #238636, #2ea043);
+      color: white;
+      cursor: pointer;
+      transition: opacity .15s;
+      margin-bottom: 20px;
+    }
+    #predict-btn:hover   { opacity: .9; }
+    #predict-btn:disabled{ opacity: .5; cursor: not-allowed; }
+
+    /* ── Result Panel ── */
+    #result { display: none; }
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .risk-badge {
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .05em;
+    }
+    .risk-LOW      { background: rgba(35,134,54,.2);  color: #3fb950; border: 1px solid rgba(63,185,80,.4); }
+    .risk-MODERATE { background: rgba(210,153,34,.2); color: #e3b341; border: 1px solid rgba(210,153,34,.4); }
+    .risk-HIGH     { background: rgba(218,58,51,.2);  color: #f85149; border: 1px solid rgba(218,58,51,.4); }
+    .risk-CRITICAL { background: rgba(185,28,28,.3);  color: #ff6e6e; border: 1px solid rgba(185,28,28,.5); }
+
+    .prob-bar-wrap { flex: 1; }
+    .prob-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .prob-bar { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
+    .prob-fill {
+      height: 100%;
+      border-radius: 5px;
+      transition: width .6s ease;
+    }
+
+    .factors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    @media (max-width: 580px) { .factors { grid-template-columns: 1fr; } }
+    .factor-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      text-align: center;
+    }
+    .factor-card .rank { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .factor-card .name { font-size: 13px; font-weight: 600; }
+    .factor-card .imp  { font-size: 22px; font-weight: 700; color: #58a6ff; margin-top: 4px; }
+
+    /* ── Error ── */
+    #error-msg {
+      display: none;
+      background: rgba(218,54,51,.15);
+      border: 1px solid var(--danger);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      color: #f85149;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      margin-top: 36px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    /* API config banner */
+    #api-banner {
+      background: rgba(31,111,235,.15);
+      border: 1px solid rgba(31,111,235,.4);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #79c0ff;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #api-url-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 6px 10px;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="tag">AWS Lambda · API Gateway · S3</div>
+    <h1>🌍 Global Displacement Risk Predictor</h1>
+    <p>
+      ML-powered tool to assess the risk of mass forced displacement
+      by country — powered by a serverless AWS architecture.
+      Based on UNHCR &amp; World Bank humanitarian indicators.
+    </p>
+  </header>
+
+  <!-- API URL config -->
+  <div id="api-banner">
+    <span>🔗 API Endpoint:</span>
+    <input id="api-url-input" type="text"
+      placeholder="https://YOUR-API-ID.execute-api.us-east-1.amazonaws.com/predict"
+      value="" />
+  </div>
+
+  <!-- Presets -->
+  <div class="presets">
+    <span style="font-size:12px;color:var(--muted);align-self:center;">Load example:</span>
+    <button class="preset-btn" onclick="loadPreset('sudan')">🇸🇩 Sudan</button>
+    <button class="preset-btn" onclick="loadPreset('ukraine')">🇺🇦 Ukraine</button>
+    <button class="preset-btn" onclick="loadPreset('germany')">🇩🇪 Germany</button>
+    <button class="preset-btn" onclick="loadPreset('bangladesh')">🇧🇩 Bangladesh</button>
+    <button class="preset-btn" onclick="loadPreset('syria')">🇸🇾 Syria</button>
+  </div>
+
+  <!-- Form -->
+  <div class="card">
+    <h2>⚔️ Conflict &amp; Political Indicators</h2>
+    <div class="grid">
+      <div class="field">
+        <label>Conflict Intensity <span>(0 = none, 10 = active war)</span></label>
+        <input type="range" id="conflict_intensity" min="0" max="10" step="0.1" value="3"
+               oninput="updateVal(this,'ci-val')">
+        <div class="val"><strong id="ci-val">3.0</strong><small>0 – 10</small></div>
+      </div>
+      <div class="field">
+        <label>Political Instability <span>(0 = stable, 10 = failed state)</span></label>
+        <input type="range" id="political_instability" min="0" max="10" step="0.1" value="3"
+               oninput="updateVal(this,'pi-val')">
+        <div class="val"><strong id="pi-val">3.0</strong><small>0 – 10</small></div>
+      </div>
+      <div class="field">
+        <label>Human Rights Score <span>(0 = free, 10 = severe violations)</span></label>
+        <input type="range" id="human_rights_score" min="0" max="10" step="0.1" value="4"
+               oninput="updateVal(this,'hr-val')">
+        <div class="val"><strong id="hr-val">4.0</strong><small>0 – 10</small></div>
+      </div>
+      <div class="field">
+        <label>Neighboring Country at War?</label>
+        <div class="toggle-group">
+          <button id="nc-no"  class="active" onclick="setToggle('neighboring_conflict',0,'nc-no','nc-yes')">No</button>
+          <button id="nc-yes" class=""        onclick="setToggle('neighboring_conflict',1,'nc-no','nc-yes')">Yes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📊 Economic &amp; Governance Indicators</h2>
+    <div class="grid">
+      <div class="field">
+        <label>GDP Per Capita <span>(log scale, e.g. 7.6 ≈ $2 000)</span></label>
+        <input type="range" id="gdp_per_capita_log" min="4" max="12" step="0.1" value="8.5"
+               oninput="updateVal(this,'gdp-val')">
+        <div class="val">
+          <strong id="gdp-val">8.5</strong>
+          <small id="gdp-usd">≈ $4 900</small>
+        </div>
+      </div>
+      <div class="field">
+        <label>Governance Index <span>(0 = very weak, 10 = very strong)</span></label>
+        <input type="range" id="governance_index" min="0" max="10" step="0.1" value="5"
+               oninput="updateVal(this,'gi-val')">
+        <div class="val"><strong id="gi-val">5.0</strong><small>0 – 10</small></div>
+      </div>
+      <div class="field">
+        <label>Unemployment Rate <span>(%)</span></label>
+        <input type="range" id="unemployment_rate" min="0" max="40" step="0.5" value="10"
+               oninput="updateVal(this,'ur-val')">
+        <div class="val"><strong id="ur-val">10.0</strong><small>0 – 40 %</small></div>
+      </div>
+      <div class="field">
+        <label>Food Insecurity Score <span>(0 = food secure, 10 = famine)</span></label>
+        <input type="range" id="food_insecurity_score" min="0" max="10" step="0.1" value="3"
+               oninput="updateVal(this,'fi-val')">
+        <div class="val"><strong id="fi-val">3.0</strong><small>0 – 10</small></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🌡️ Climate &amp; Population</h2>
+    <div class="grid">
+      <div class="field">
+        <label>Climate Disaster Risk <span>(0 = low, 10 = extreme)</span></label>
+        <input type="range" id="climate_disaster_risk" min="0" max="10" step="0.1" value="3"
+               oninput="updateVal(this,'cdr-val')">
+        <div class="val"><strong id="cdr-val">3.0</strong><small>0 – 10</small></div>
+      </div>
+      <div class="field">
+        <label>Population <span>(millions)</span></label>
+        <input type="range" id="population_millions" min="0.1" max="200" step="0.5" value="20"
+               oninput="updateVal(this,'pop-val')">
+        <div class="val"><strong id="pop-val">20.0</strong><small>millions</small></div>
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>Prior Year Displaced <span>(number of people)</span></label>
+        <input type="number" id="prior_year_displaced" value="50000" min="0" step="1000"
+               style="margin-top:6px">
+      </div>
+    </div>
+  </div>
+
+  <!-- Predict -->
+  <button id="predict-btn" onclick="predict()">
+    🔮 Predict Displacement Risk
+  </button>
+
+  <!-- Error -->
+  <div id="error-msg"></div>
+
+  <!-- Result -->
+  <div id="result" class="card">
+    <h2>📋 Prediction Result</h2>
+    <div class="result-header">
+      <div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">Risk Classification</div>
+        <span class="risk-badge" id="risk-badge">—</span>
+      </div>
+      <div class="prob-bar-wrap">
+        <div class="prob-label">Displacement Probability: <strong id="prob-pct">—</strong></div>
+        <div class="prob-bar"><div class="prob-fill" id="prob-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:18px;padding:12px 16px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Model Verdict</div>
+      <div style="font-size:18px;font-weight:700;" id="verdict-text">—</div>
+    </div>
+
+    <div style="margin-bottom:14px;font-size:13px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">
+      Top 3 Risk Drivers
+    </div>
+    <div class="factors" id="factors">—</div>
+  </div>
+
+  <footer>
+    Serverless ML Deployment Lab · AWS Lambda + API Gateway + S3<br>
+    Model: Gradient Boosting Classifier · ROC-AUC 0.93<br>
+    Dataset: Synthetic based on UNHCR &amp; World Bank humanitarian indicators
+  </footer>
+</div>
+
+<script>
+/* ── Helpers ───────────────────────────────────── */
+let neighboringConflict = 0;
+
+function updateVal(el, spanId) {
+  const v = parseFloat(el.value).toFixed(1);
+  document.getElementById(spanId).textContent = v;
+  if (el.id === 'gdp_per_capita_log') {
+    document.getElementById('gdp-usd').textContent =
+      '≈ $' + Math.round(Math.exp(parseFloat(v))).toLocaleString();
+  }
+}
+
+function setToggle(field, val, noId, yesId) {
+  neighboringConflict = val;
+  document.getElementById(noId).classList.toggle('active', val === 0);
+  document.getElementById(yesId).classList.toggle('active', val === 1);
+}
+
+/* ── Presets ───────────────────────────────────── */
+const PRESETS = {
+  sudan:      { conflict_intensity:9.2, political_instability:8.8, gdp_per_capita_log:6.5, food_insecurity_score:9.0, climate_disaster_risk:7.5, governance_index:1.5, human_rights_score:9.0, unemployment_rate:19.0, prior_year_displaced:9000000, population_millions:46, neighboring_conflict:1 },
+  ukraine:    { conflict_intensity:8.5, political_instability:7.0, gdp_per_capita_log:8.2, food_insecurity_score:5.0, climate_disaster_risk:4.0, governance_index:4.5, human_rights_score:6.5, unemployment_rate:9.0,  prior_year_displaced:5000000, population_millions:44, neighboring_conflict:0 },
+  germany:    { conflict_intensity:0.2, political_instability:1.0, gdp_per_capita_log:10.9, food_insecurity_score:0.5, climate_disaster_risk:2.0, governance_index:9.0, human_rights_score:0.8, unemployment_rate:3.0,  prior_year_displaced:5000,   population_millions:84, neighboring_conflict:0 },
+  bangladesh: { conflict_intensity:2.5, political_instability:5.5, gdp_per_capita_log:7.8, food_insecurity_score:6.0, climate_disaster_risk:8.5, governance_index:3.5, human_rights_score:5.5, unemployment_rate:5.0,  prior_year_displaced:800000, population_millions:170,neighboring_conflict:0 },
+  syria:      { conflict_intensity:9.5, political_instability:9.2, gdp_per_capita_log:6.2, food_insecurity_score:9.5, climate_disaster_risk:6.0, governance_index:1.0, human_rights_score:9.5, unemployment_rate:35.0, prior_year_displaced:6500000,population_millions:21, neighboring_conflict:1 },
+};
+
+function loadPreset(name) {
+  const p = PRESETS[name];
+  document.getElementById('conflict_intensity').value     = p.conflict_intensity;
+  document.getElementById('political_instability').value  = p.political_instability;
+  document.getElementById('gdp_per_capita_log').value     = p.gdp_per_capita_log;
+  document.getElementById('food_insecurity_score').value  = p.food_insecurity_score;
+  document.getElementById('climate_disaster_risk').value  = p.climate_disaster_risk;
+  document.getElementById('governance_index').value       = p.governance_index;
+  document.getElementById('human_rights_score').value     = p.human_rights_score;
+  document.getElementById('unemployment_rate').value      = p.unemployment_rate;
+  document.getElementById('prior_year_displaced').value   = p.prior_year_displaced;
+  document.getElementById('population_millions').value    = p.population_millions;
+  setToggle('nc', p.neighboring_conflict, 'nc-no', 'nc-yes');
+
+  ['ci','pi','hr','gdp','gi','ur','fi','cdr','pop'].forEach(id => {
+    const map = { ci:'conflict_intensity', pi:'political_instability', hr:'human_rights_score',
+                  gdp:'gdp_per_capita_log', gi:'governance_index', ur:'unemployment_rate',
+                  fi:'food_insecurity_score', cdr:'climate_disaster_risk', pop:'population_millions' };
+    updateVal(document.getElementById(map[id]), id+'-val');
+  });
+}
+
+/* ── Predict ───────────────────────────────────── */
+async function predict() {
+  const btn = document.getElementById('predict-btn');
+  const errDiv = document.getElementById('error-msg');
+  errDiv.style.display = 'none';
+  document.getElementById('result').style.display = 'none';
+
+  const apiUrl = document.getElementById('api-url-input').value.trim();
+  if (!apiUrl) {
+    showError('Please enter your API Gateway URL above before predicting.');
+    return;
+  }
+
+  const payload = {
+    conflict_intensity:    parseFloat(document.getElementById('conflict_intensity').value),
+    political_instability: parseFloat(document.getElementById('political_instability').value),
+    gdp_per_capita_log:    parseFloat(document.getElementById('gdp_per_capita_log').value),
+    food_insecurity_score: parseFloat(document.getElementById('food_insecurity_score').value),
+    climate_disaster_risk: parseFloat(document.getElementById('climate_disaster_risk').value),
+    governance_index:      parseFloat(document.getElementById('governance_index').value),
+    human_rights_score:    parseFloat(document.getElementById('human_rights_score').value),
+    unemployment_rate:     parseFloat(document.getElementById('unemployment_rate').value),
+    prior_year_displaced:  parseFloat(document.getElementById('prior_year_displaced').value),
+    neighboring_conflict:  neighboringConflict,
+    population_millions:   parseFloat(document.getElementById('population_millions').value),
+  };
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Predicting…';
+
+  try {
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'API returned ' + res.status);
+    renderResult(data);
+  } catch (err) {
+    showError('API call failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔮 Predict Displacement Risk';
+  }
+}
+
+function renderResult(data) {
+  const tierColors = { LOW:'#3fb950', MODERATE:'#e3b341', HIGH:'#f85149', CRITICAL:'#ff6e6e' };
+  const prob = data.probability;
+  const pct  = Math.round(prob * 100);
+
+  document.getElementById('risk-badge').textContent = data.risk_tier;
+  document.getElementById('risk-badge').className   = 'risk-badge risk-' + data.risk_tier;
+  document.getElementById('prob-pct').textContent    = pct + '%';
+
+  const fill = document.getElementById('prob-fill');
+  fill.style.width      = pct + '%';
+  fill.style.background = tierColors[data.risk_tier] || '#58a6ff';
+
+  document.getElementById('verdict-text').textContent = data.label;
+
+  const factorsHtml = data.top_risk_factors.map((f, i) => `
+    <div class="factor-card">
+      <div class="rank">#${i+1} Driver</div>
+      <div class="name">${f.feature.replace(/_/g,' ')}</div>
+      <div class="imp">${(f.importance * 100).toFixed(1)}%</div>
+    </div>`).join('');
+  document.getElementById('factors').innerHTML = factorsHtml;
+
+  document.getElementById('result').style.display = 'block';
+  document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+</script>
+</body>
+</html>
